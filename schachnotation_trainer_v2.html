@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#f7f7f8">
+<title>Schachnotation</title>
+<style>
+:root{--light:#f0d9b5;--dark:#b58863;--blue:#2878ff;--green:#35a853;--red:#e34b4b}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:#f7f7f8;color:#111;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif}
+.app{max-width:520px;margin:auto;padding:calc(env(safe-area-inset-top) + 16px) 14px calc(env(safe-area-inset-bottom) + 20px)}
+h1{text-align:center;font-size:25px;margin:0 0 14px}
+.panel{background:#fff;border-radius:18px;padding:13px;margin-bottom:12px;box-shadow:0 2px 12px #0000000d}
+.row{display:flex;gap:8px}
+button{border:0;border-radius:12px;padding:10px 13px;font-size:16px;font-weight:600;background:#e9e9ed;color:#111}
+button.active{background:#111;color:#fff}
+.question{text-align:center;font-size:38px;font-weight:800;margin:3px 0 12px;min-height:46px}
+.board{width:min(94vw,480px);aspect-ratio:1;margin:auto;display:grid;grid-template-columns:repeat(8,1fr);border-radius:10px;overflow:hidden;box-shadow:0 4px 18px #0003;touch-action:manipulation}
+.square{position:relative;display:flex;align-items:center;justify-content:center}
+.light{background:var(--light)}.dark{background:var(--dark)}
+.square.correct{background:var(--green)!important}.square.wrong{background:var(--red)!important}
+.square.target{box-shadow:inset 0 0 0 5px #ffd400}
+.coord{position:absolute;font-size:10px;font-weight:700;opacity:.72;pointer-events:none}
+.file{right:3px;bottom:1px}.rank{left:3px;top:1px}
+.dark .coord{color:#fff}.light .coord{color:#5a4630}
+.feedback{text-align:center;height:25px;margin-top:8px;font-weight:700}
+.ok{color:var(--green)}.bad{color:var(--red)}
+.next{width:100%;margin-top:2px;background:var(--blue);color:#fff}
+.stats{display:flex;justify-content:space-around;text-align:center}
+.stat b{display:block;font-size:21px}.stat span{font-size:12px;color:#666}
+.small{text-align:center;color:#777;font-size:12px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="app">
+<h1>Schachnotation</h1>
+<div class="panel">
+  <div class="row">
+    <button id="whiteBtn" class="active" style="flex:1">Weiß</button>
+    <button id="blackBtn" style="flex:1">Schwarz</button>
+  </div>
+</div>
+<div class="panel">
+  <div class="question" id="question">e4</div>
+  <div class="board" id="board"></div>
+  <div id="feedback" class="feedback"></div>
+  <button id="nextBtn" class="next">Nächste</button>
+</div>
+<div class="panel stats">
+  <div class="stat"><b id="correct">0</b><span>Richtig</span></div>
+  <div class="stat"><b id="total">0</b><span>Aufgaben</span></div>
+  <div class="stat"><b id="percent">0%</b><span>Trefferquote</span></div>
+</div>
+<div class="small">Statistik wird auf diesem Gerät gespeichert.</div>
+</div>
+
+<script>
+const files=['a','b','c','d','e','f','g','h'];
+const board=document.getElementById('board'),question=document.getElementById('question');
+const feedback=document.getElementById('feedback'),nextBtn=document.getElementById('nextBtn');
+const correctEl=document.getElementById('correct'),totalEl=document.getElementById('total'),percentEl=document.getElementById('percent');
+const whiteBtn=document.getElementById('whiteBtn'),blackBtn=document.getElementById('blackBtn');
+
+let orientation=localStorage.getItem('orientation')||'white';
+let target=null,answered=false;
+let stats=JSON.parse(localStorage.getItem('chessStats')||'{"correct":0,"total":0}');
+let streak=0;
+
+function save(){localStorage.setItem('chessStats',JSON.stringify(stats));localStorage.setItem('orientation',orientation)}
+function updateStats(){
+ correctEl.textContent=stats.correct;totalEl.textContent=stats.total;
+ percentEl.textContent=stats.total?Math.round(stats.correct/stats.total*100)+'%':'0%';
+}
+function newTask(){
+ target={f:Math.floor(Math.random()*8),r:Math.floor(Math.random()*8)};
+ answered=false; feedback.textContent='';feedback.className='feedback';
+ question.textContent=files[target.f]+(target.r+1);
+ draw(); save();
+}
+function draw(){
+ board.innerHTML='';
+ const fs=orientation==='white'?[0,1,2,3,4,5,6,7]:[7,6,5,4,3,2,1,0];
+ const rs=orientation==='white'?[7,6,5,4,3,2,1,0]:[0,1,2,3,4,5,6,7];
+ for(const r of rs)for(const f of fs){
+   const s=document.createElement('div');
+   s.className='square '+(((f+r)%2===0)?'light':'dark');
+   s.dataset.f=f;s.dataset.r=r;
+   const fl=document.createElement('span');fl.className='coord file';fl.textContent=files[f];
+   const rl=document.createElement('span');rl.className='coord rank';rl.textContent=r+1;
+   s.append(fl,rl);s.onclick=()=>choose(f,r,s);board.appendChild(s);
+ }
+}
+function choose(f,r,s){
+ if(answered)return;
+ answered=true;stats.total++;
+ if(f===target.f&&r===target.r){
+   stats.correct++;streak++;s.classList.add('correct');
+   feedback.textContent='✓';feedback.className='feedback ok';
+ }else{
+   streak=0;s.classList.add('wrong');
+   feedback.textContent='✗ '+files[target.f]+(target.r+1);feedback.className='feedback bad';
+   const t=[...board.children].find(x=>+x.dataset.f===target.f&&+x.dataset.r===target.r);
+   if(t)t.classList.add('target');
+ }
+ updateStats();save();
+}
+function setOrientation(o){
+ orientation=o;whiteBtn.classList.toggle('active',o==='white');blackBtn.classList.toggle('active',o==='black');draw();save();
+}
+whiteBtn.onclick=()=>setOrientation('white');blackBtn.onclick=()=>setOrientation('black');nextBtn.onclick=newTask;
+updateStats();setOrientation(orientation);newTask();
+</script>
+</body>
+</html>
